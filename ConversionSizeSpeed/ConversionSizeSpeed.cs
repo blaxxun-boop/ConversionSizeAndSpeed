@@ -16,12 +16,13 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.0";
+	private const string ModVersion = "1.0.1";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
 
 	private static ConfigEntry<Toggle> serverConfigLocked = null!;
+	private static ConfigEntry<KeyboardShortcut> fillModifierKey = null!;
 	private static readonly Dictionary<string, ConfigEntry<int>> storageSpace = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> fuelSpace = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> storageSpaceIncreasePerBoss = new();
@@ -65,11 +66,13 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 
 		serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, new ConfigDescription("If on, only admins can change the configuration on a server."));
 		configSync.AddLockingConfigEntry(serverConfigLocked);
+		fillModifierKey = config("1 - General", "Fill up modifier key", new KeyboardShortcut(KeyCode.LeftShift), new ConfigDescription("Modifier key to hold, to fill all possible items at once. Clear value to disable this."), false);
 	}
 
 	[HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.CopyOtherDB))]
 	private class FetchSmelterPiecesObjectDB
 	{
+		[HarmonyPriority(Priority.Last)]
 		private static void Postfix(ObjectDB __instance)
 		{
 			if (__instance.GetItemPrefab("Hammer")?.GetComponent<ItemDrop>()?.m_itemData.m_shared.m_buildPieces is { } pieces)
@@ -82,6 +85,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	[HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake))]
 	private class FetchSmelterPiecesZNetScene
 	{
+		[HarmonyPriority(Priority.Last)]
 		private static void Postfix(ZNetScene __instance)
 		{
 			FetchSmelterPieces(__instance.m_prefabs);
@@ -138,12 +142,12 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		foreach (Smelter smelter in FindObjectsOfType<Smelter>())
 		{
 			string pieceName = smelter.GetComponent<Piece>().m_name;
-			if (smelter.m_addOreSwitch)
+			if (smelter.m_addOreSwitch && storageSpace.ContainsKey(pieceName))
 			{
 				smelter.m_maxOre = storageSpace[pieceName].Value + storageSpaceIncreasePerBoss[pieceName].Value * BossesDead();
 			}
 
-			if (smelter.m_addWoodSwitch)
+			if (smelter.m_addWoodSwitch && fuelSpace.ContainsKey(pieceName))
 			{
 				smelter.m_maxFuel = fuelSpace[pieceName].Value + fuelSpaceIncreasePerBoss[pieceName].Value * BossesDead();
 			}
@@ -155,7 +159,10 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		foreach (Smelter smelter in FindObjectsOfType<Smelter>())
 		{
 			string pieceName = smelter.GetComponent<Piece>().m_name;
-			smelter.m_secPerProduct = conversionSpeed[pieceName].Value;
+			if (conversionSpeed.ContainsKey(pieceName))
+			{
+				smelter.m_secPerProduct = conversionSpeed[pieceName].Value;
+			}
 		}
 	}
 
@@ -167,17 +174,20 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		{
 			string pieceName = __instance.GetComponent<Piece>().m_name;
 
-			if (__instance.m_addOreSwitch)
+			if (__instance.m_addOreSwitch && storageSpace.ContainsKey(pieceName))
 			{
 				__instance.m_maxOre = storageSpace[pieceName].Value;
 			}
 
-			if (__instance.m_addWoodSwitch)
+			if (__instance.m_addWoodSwitch && fuelSpace.ContainsKey(pieceName))
 			{
 				__instance.m_maxFuel = fuelSpace[pieceName].Value;
 			}
 
-			__instance.m_secPerProduct = conversionSpeed[pieceName].Value;
+			if (conversionSpeed.ContainsKey(pieceName))
+			{
+				__instance.m_secPerProduct = conversionSpeed[pieceName].Value;
+			}
 		}
 	}
 
@@ -190,6 +200,153 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 			if (__instance.IsBoss())
 			{
 				RecalculateAllSizes();
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(Smelter), nameof(Smelter.OnAddOre))]
+	private class FillAllOres
+	{
+		public static void Prefix(ItemDrop.ItemData? item, out ItemDrop.ItemData? __state) => __state = item;
+
+		public static void Postfix(Smelter __instance, Switch sw, Humanoid user, ItemDrop.ItemData? __state, bool __result)
+		{
+			if (Input.GetKey(fillModifierKey.Value.MainKey) && fillModifierKey.Value.Modifiers.All(Input.GetKey) && __result && __state is null)
+			{
+				MessageHud originalMessageHud = MessageHud.m_instance;
+				MessageHud.m_instance = null;
+				try
+				{
+					__instance.OnAddOre(sw, user, null);
+				}
+				finally
+				{
+					MessageHud.m_instance = originalMessageHud;
+				}
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(Smelter), nameof(Smelter.OnAddFuel))]
+	private class FillAllFuel
+	{
+		public static void Prefix(ItemDrop.ItemData? item, out ItemDrop.ItemData? __state) => __state = item;
+
+		public static void Postfix(Smelter __instance, Switch sw, Humanoid user, ItemDrop.ItemData? __state, bool __result)
+		{
+			if (Input.GetKey(fillModifierKey.Value.MainKey) && fillModifierKey.Value.Modifiers.All(Input.GetKey) && __result && __state is null)
+			{
+				MessageHud originalMessageHud = MessageHud.m_instance;
+				MessageHud.m_instance = null;
+				try
+				{
+					__instance.OnAddFuel(sw, user, null);
+				}
+				finally
+				{
+					MessageHud.m_instance = originalMessageHud;
+				}
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(Smelter), nameof(Smelter.RPC_AddOre))]
+	private class ThrottleOreEffects
+	{
+		private static float lastFill;
+
+		public static void Prefix(Smelter __instance, out EffectList? __state)
+		{
+			if (Math.Abs(lastFill - Time.fixedTime) > 0)
+			{
+				__state = null;
+				lastFill = Time.fixedTime;
+			}
+			else
+			{
+				__state = __instance.m_oreAddedEffects;
+				__instance.m_oreAddedEffects = new EffectList();
+			}
+		}
+
+		public static void Finalizer(Smelter __instance, EffectList? __state)
+		{
+			if (__state is not null)
+			{
+				__instance.m_oreAddedEffects = __state;
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(Smelter), nameof(Smelter.RPC_AddFuel))]
+	private class ThrottleFuelEffects
+	{
+		private static float lastFill;
+
+		public static void Prefix(Smelter __instance, out EffectList? __state)
+		{
+			if (Math.Abs(lastFill - Time.fixedTime) > 0)
+			{
+				__state = null;
+				lastFill = Time.fixedTime;
+			}
+			else
+			{
+				__state = __instance.m_fuelAddedEffects;
+				__instance.m_fuelAddedEffects = new EffectList();
+			}
+		}
+
+		public static void Finalizer(Smelter __instance, EffectList? __state)
+		{
+			if (__state is not null)
+			{
+				__instance.m_fuelAddedEffects = __state;
+			}
+		}
+	}
+
+	[HarmonyPatch(typeof(Smelter), nameof(Smelter.UpdateHoverTexts))]
+	private class OverrideHoverText
+	{
+		public static void Postfix(Smelter __instance)
+		{
+			if (fillModifierKey.Value.MainKey is KeyCode.None)
+			{
+				return;
+			}
+
+			if (__instance.m_addOreSwitch)
+			{
+				int free = __instance.m_maxOre - __instance.GetQueueSize();
+				List<string> items = new();
+				foreach (Smelter.ItemConversion conversion in __instance.m_conversion)
+				{
+					if (free <= 0)
+					{
+						break;
+					}
+
+					int inInv = Player.m_localPlayer?.m_inventory.CountItems(conversion.m_from.m_itemData.m_shared.m_name) ?? 0;
+					if (inInv > 0)
+					{
+						items.Add($"{Math.Min(free, inInv)} {conversion.m_from.m_itemData.m_shared.m_name}");
+					}
+
+					free -= inInv;
+				}
+				if (items.Count > 0)
+				{
+					__instance.m_addOreSwitch.m_hoverText += $"\n[<b><color=yellow>{fillModifierKey.Value}</color> + <color=yellow>$KEY_Use</color></b>] {__instance.m_addOreTooltip} ({string.Join(", ", items)})";
+				}
+			}
+			if (__instance.m_addWoodSwitch)
+			{
+				int amount = Math.Min(__instance.m_maxFuel - Mathf.CeilToInt(__instance.GetFuel()), Player.m_localPlayer?.m_inventory.CountItems(__instance.m_fuelItem.m_itemData.m_shared.m_name) ?? 0);
+				if (amount > 0)
+				{
+					__instance.m_addWoodSwitch.m_hoverText += $"\n[<b><color=yellow>{fillModifierKey.Value}</color> + <color=yellow>$KEY_Use</color></b>] $piece_smelter_add {__instance.m_fuelItem.m_itemData.m_shared.m_name} ({amount})";
+				}
 			}
 		}
 	}
