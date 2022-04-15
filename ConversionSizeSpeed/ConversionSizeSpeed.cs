@@ -16,7 +16,7 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.1";
+	private const string ModVersion = "1.0.2";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -207,12 +207,27 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	[HarmonyPatch(typeof(Smelter), nameof(Smelter.OnAddOre))]
 	private class FillAllOres
 	{
-		public static void Prefix(ItemDrop.ItemData? item, out ItemDrop.ItemData? __state) => __state = item;
-
-		public static void Postfix(Smelter __instance, Switch sw, Humanoid user, ItemDrop.ItemData? __state, bool __result)
+		public static void Prefix(Smelter __instance, ItemDrop.ItemData? item, out KeyValuePair<ItemDrop.ItemData?, int> __state) 	
 		{
-			if (Input.GetKey(fillModifierKey.Value.MainKey) && fillModifierKey.Value.Modifiers.All(Input.GetKey) && __result && __state is null)
+			__instance.m_nview.GetZDO().m_ints.TryGetValue("queued".GetStableHashCode(), out int ore);
+			__state = new KeyValuePair<ItemDrop.ItemData?, int>(item, ore);
+		}
+		
+		public static void Postfix(Smelter __instance, Switch sw, Humanoid user, KeyValuePair<ItemDrop.ItemData?, int> __state, bool __result)
+		{
+			if (Input.GetKey(fillModifierKey.Value.MainKey) && fillModifierKey.Value.Modifiers.All(Input.GetKey) && __result && __state.Key is null)
 			{
+				if (!__instance.m_nview.IsOwner())
+				{
+					Dictionary<int, int> ints = __instance.m_nview.GetZDO().m_ints;
+					ints.TryGetValue("queued".GetStableHashCode(), out int ore);
+					// ReSharper disable once CompareOfFloatsByEqualityOperator
+					if (ore == __state.Value)
+					{
+						ints["queued".GetStableHashCode()] = ore + 1;
+					}
+				}
+
 				MessageHud originalMessageHud = MessageHud.m_instance;
 				MessageHud.m_instance = null;
 				try
@@ -230,12 +245,27 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	[HarmonyPatch(typeof(Smelter), nameof(Smelter.OnAddFuel))]
 	private class FillAllFuel
 	{
-		public static void Prefix(ItemDrop.ItemData? item, out ItemDrop.ItemData? __state) => __state = item;
-
-		public static void Postfix(Smelter __instance, Switch sw, Humanoid user, ItemDrop.ItemData? __state, bool __result)
+		public static void Prefix(Smelter __instance, ItemDrop.ItemData? item, out KeyValuePair<ItemDrop.ItemData?, float> __state)
 		{
-			if (Input.GetKey(fillModifierKey.Value.MainKey) && fillModifierKey.Value.Modifiers.All(Input.GetKey) && __result && __state is null)
+			__instance.m_nview.GetZDO().m_floats.TryGetValue("fuel".GetStableHashCode(), out float fuel);
+			__state = new KeyValuePair<ItemDrop.ItemData?, float>(item, fuel);
+		}
+
+		public static void Postfix(Smelter __instance, Switch sw, Humanoid user, KeyValuePair<ItemDrop.ItemData?, float> __state, bool __result)
+		{
+			if (Input.GetKey(fillModifierKey.Value.MainKey) && fillModifierKey.Value.Modifiers.All(Input.GetKey) && __result && __state.Key is null)
 			{
+				if (!__instance.m_nview.IsOwner())
+				{
+					Dictionary<int, float> floats = __instance.m_nview.GetZDO().m_floats;
+					floats.TryGetValue("fuel".GetStableHashCode(), out float fuel);
+					// ReSharper disable once CompareOfFloatsByEqualityOperator
+					if (fuel == __state.Value)
+					{
+						floats["fuel".GetStableHashCode()] = fuel + 1;
+					}
+				}
+				
 				MessageHud originalMessageHud = MessageHud.m_instance;
 				MessageHud.m_instance = null;
 				try
