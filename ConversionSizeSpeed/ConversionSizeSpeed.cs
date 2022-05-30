@@ -16,7 +16,7 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.3";
+	private const string ModVersion = "1.0.4";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -176,12 +176,12 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 
 			if (__instance.m_addOreSwitch && storageSpace.ContainsKey(pieceName))
 			{
-				__instance.m_maxOre = storageSpace[pieceName].Value;
+				__instance.m_maxOre = storageSpace[pieceName].Value + storageSpaceIncreasePerBoss[pieceName].Value * BossesDead();
 			}
 
 			if (__instance.m_addWoodSwitch && fuelSpace.ContainsKey(pieceName))
 			{
-				__instance.m_maxFuel = fuelSpace[pieceName].Value;
+				__instance.m_maxFuel = fuelSpace[pieceName].Value + fuelSpaceIncreasePerBoss[pieceName].Value * BossesDead();
 			}
 
 			if (conversionSpeed.ContainsKey(pieceName))
