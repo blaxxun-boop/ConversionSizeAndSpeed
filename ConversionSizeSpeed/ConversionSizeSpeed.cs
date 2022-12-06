@@ -16,7 +16,7 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.6";
+	private const string ModVersion = "1.0.7";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
