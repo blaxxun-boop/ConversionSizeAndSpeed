@@ -16,7 +16,7 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.7";
+	private const string ModVersion = "1.0.8";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -25,6 +25,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	private static ConfigEntry<KeyboardShortcut> fillModifierKey = null!;
 	private static readonly Dictionary<string, ConfigEntry<int>> storageSpace = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> fuelSpace = new();
+	private static readonly Dictionary<string, ConfigEntry<int>> fuelPerProduct = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> storageSpaceIncreasePerBoss = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> fuelSpaceIncreasePerBoss = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> conversionSpeed = new();
@@ -125,6 +126,11 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 				fuelSpace[pieceName].SettingChanged += OnSizeChanged;
 				fuelSpaceIncreasePerBoss[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Fuel space increase per boss", 0, new ConfigDescription($"Increases the maximum number of fuel that a {english.Localize(pieceName)} can hold for each boss killed.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order, ShowRangeAsPercent = false }));
 				fuelSpaceIncreasePerBoss[pieceName].SettingChanged += OnSizeChanged;
+				if (pieceName != "$piece_bathtub")
+				{
+					fuelPerProduct[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Fuel per product", smelter.m_fuelPerProduct, new ConfigDescription($"Sets how much fuel a {english.Localize(pieceName)} needs per produced product.", new AcceptableValueRange<int>(1, 20), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order }));
+					fuelPerProduct[pieceName].SettingChanged += OnFuelPerProductChanged;
+				}
 			}
 
 			conversionSpeed[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Conversion time", (int)smelter.m_secPerProduct, new ConfigDescription($"Time in seconds that a {english.Localize(pieceName)} needs for one conversion.", new AcceptableValueRange<int>(1, pieceName == "$piece_bathtub" ? 10000 : 1000), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order }));
@@ -132,10 +138,11 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		}
 	}
 
-	private static int BossesDead() => new[] { "eikthyr", "gdking", "bonemass", "dragon", "goblinking" }.Count(boss => ZoneSystem.instance.GetGlobalKey("defeated_" + boss));
+	private static int BossesDead() => new[] { "eikthyr", "gdking", "bonemass", "dragon", "goblinking", "queen" }.Count(boss => ZoneSystem.instance.GetGlobalKey("defeated_" + boss));
 
 	private static void OnSizeChanged(object o, EventArgs e) => RecalculateAllSizes();
 	private static void OnSpeedChanged(object o, EventArgs e) => UpdateConversionSpeed();
+	private static void OnFuelPerProductChanged(object o, EventArgs e) => UpdateFuelPerProduct();
 
 	private static void RecalculateAllSizes()
 	{
@@ -162,6 +169,18 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 			if (conversionSpeed.ContainsKey(pieceName))
 			{
 				smelter.m_secPerProduct = conversionSpeed[pieceName].Value;
+			}
+		}
+	}
+	
+	private static void UpdateFuelPerProduct()
+	{
+		foreach (Smelter smelter in FindObjectsOfType<Smelter>())
+		{
+			string pieceName = smelter.GetComponent<Piece>().m_name;
+			if (fuelPerProduct.ContainsKey(pieceName) && smelter.m_addWoodSwitch)
+			{
+				smelter.m_fuelPerProduct = fuelPerProduct[pieceName].Value;
 			}
 		}
 	}
