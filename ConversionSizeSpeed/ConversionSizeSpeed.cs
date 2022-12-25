@@ -16,7 +16,7 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.8";
+	private const string ModVersion = "1.0.9";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -172,7 +172,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 			}
 		}
 	}
-	
+
 	private static void UpdateFuelPerProduct()
 	{
 		foreach (Smelter smelter in FindObjectsOfType<Smelter>())
@@ -206,6 +206,11 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 			if (conversionSpeed.ContainsKey(pieceName))
 			{
 				__instance.m_secPerProduct = conversionSpeed[pieceName].Value;
+			}
+
+			if (fuelPerProduct.ContainsKey(pieceName))
+			{
+				__instance.m_fuelPerProduct = fuelPerProduct[pieceName].Value;
 			}
 		}
 	}
