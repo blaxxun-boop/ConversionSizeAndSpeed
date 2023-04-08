@@ -13,10 +13,11 @@ using UnityEngine;
 namespace ConversionSizeSpeed;
 
 [BepInPlugin(ModGUID, ModName, ModVersion)]
+[BepInIncompatibility("org.bepinex.plugins.valheim_plus")]
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.9";
+	private const string ModVersion = "1.0.10";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -29,6 +30,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	private static readonly Dictionary<string, ConfigEntry<int>> storageSpaceIncreasePerBoss = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> fuelSpaceIncreasePerBoss = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> conversionSpeed = new();
+	private static ConfigEntry<Toggle> ignoreWindspeed = null!;
 
 	private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description, bool synchronizedSetting = true)
 	{
@@ -132,6 +134,10 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 					fuelPerProduct[pieceName].SettingChanged += OnFuelPerProductChanged;
 				}
 			}
+			if (smelter.m_windmill is not null)
+			{
+				ignoreWindspeed = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Ignore wind intensity", Toggle.Off, new ConfigDescription($"If on, {english.Localize(pieceName)} always produces at average speed, regardless of wind.", null, new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order }));
+			}
 
 			conversionSpeed[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Conversion time", (int)smelter.m_secPerProduct, new ConfigDescription($"Time in seconds that a {english.Localize(pieceName)} needs for one conversion.", new AcceptableValueRange<int>(1, pieceName == "$piece_bathtub" ? 10000 : 1000), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order }));
 			conversionSpeed[pieceName].SettingChanged += OnSpeedChanged;
@@ -149,14 +155,14 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		foreach (Smelter smelter in FindObjectsOfType<Smelter>())
 		{
 			string pieceName = smelter.GetComponent<Piece>().m_name;
-			if (smelter.m_addOreSwitch && storageSpace.ContainsKey(pieceName))
+			if (smelter.m_addOreSwitch && storageSpace.TryGetValue(pieceName, out ConfigEntry<int> oreValue))
 			{
-				smelter.m_maxOre = storageSpace[pieceName].Value + storageSpaceIncreasePerBoss[pieceName].Value * BossesDead();
+				smelter.m_maxOre = oreValue.Value + storageSpaceIncreasePerBoss[pieceName].Value * BossesDead();
 			}
 
-			if (smelter.m_addWoodSwitch && fuelSpace.ContainsKey(pieceName))
+			if (smelter.m_addWoodSwitch && fuelSpace.TryGetValue(pieceName, out ConfigEntry<int> fuelValue))
 			{
-				smelter.m_maxFuel = fuelSpace[pieceName].Value + fuelSpaceIncreasePerBoss[pieceName].Value * BossesDead();
+				smelter.m_maxFuel = fuelValue.Value + fuelSpaceIncreasePerBoss[pieceName].Value * BossesDead();
 			}
 		}
 	}
@@ -166,9 +172,9 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		foreach (Smelter smelter in FindObjectsOfType<Smelter>())
 		{
 			string pieceName = smelter.GetComponent<Piece>().m_name;
-			if (conversionSpeed.ContainsKey(pieceName))
+			if (conversionSpeed.TryGetValue(pieceName, out ConfigEntry<int> speedValue))
 			{
-				smelter.m_secPerProduct = conversionSpeed[pieceName].Value;
+				smelter.m_secPerProduct = speedValue.Value;
 			}
 		}
 	}
@@ -193,24 +199,24 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		{
 			string pieceName = __instance.GetComponent<Piece>().m_name;
 
-			if (__instance.m_addOreSwitch && storageSpace.ContainsKey(pieceName))
+			if (__instance.m_addOreSwitch && storageSpace.TryGetValue(pieceName, out ConfigEntry<int> oreValue))
 			{
-				__instance.m_maxOre = storageSpace[pieceName].Value + storageSpaceIncreasePerBoss[pieceName].Value * BossesDead();
+				__instance.m_maxOre = oreValue.Value + storageSpaceIncreasePerBoss[pieceName].Value * BossesDead();
 			}
 
-			if (__instance.m_addWoodSwitch && fuelSpace.ContainsKey(pieceName))
+			if (__instance.m_addWoodSwitch && fuelSpace.TryGetValue(pieceName, out ConfigEntry<int> fuelValue))
 			{
-				__instance.m_maxFuel = fuelSpace[pieceName].Value + fuelSpaceIncreasePerBoss[pieceName].Value * BossesDead();
+				__instance.m_maxFuel = fuelValue.Value + fuelSpaceIncreasePerBoss[pieceName].Value * BossesDead();
 			}
 
-			if (conversionSpeed.ContainsKey(pieceName))
+			if (conversionSpeed.TryGetValue(pieceName, out ConfigEntry<int> speedValue))
 			{
-				__instance.m_secPerProduct = conversionSpeed[pieceName].Value;
+				__instance.m_secPerProduct = speedValue.Value;
 			}
 
-			if (fuelPerProduct.ContainsKey(pieceName))
+			if (fuelPerProduct.TryGetValue(pieceName, out ConfigEntry<int> fuelUsageValue))
 			{
-				__instance.m_fuelPerProduct = fuelPerProduct[pieceName].Value;
+				__instance.m_fuelPerProduct = fuelUsageValue.Value;
 			}
 		}
 	}
@@ -405,6 +411,21 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 					__instance.m_addWoodSwitch.m_hoverText += $"\n[<b><color=yellow>{fillModifierKey.Value}</color> + <color=yellow>$KEY_Use</color></b>] $piece_smelter_add {__instance.m_fuelItem.m_itemData.m_shared.m_name} ({amount})";
 				}
 			}
+		}
+	}
+
+	[HarmonyPatch(typeof(Windmill), nameof(Windmill.GetPowerOutput))]
+	private static class MakeWindmillIgnoreWind
+	{
+		private static bool Prefix(ref float __result)
+		{
+			if (ignoreWindspeed.Value == Toggle.On)
+			{
+				__result = 0.5f;
+				return false;
+			}
+
+			return true;
 		}
 	}
 }
