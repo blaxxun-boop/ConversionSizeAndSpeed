@@ -17,7 +17,7 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.10";
+	private const string ModVersion = "1.0.11";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -240,8 +240,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		[HarmonyPriority(Priority.High)]
 		public static void Prefix(Smelter __instance, ItemDrop.ItemData? item, out KeyValuePair<ItemDrop.ItemData?, int> __state)
 		{
-			int ore = 0;
-			__instance.m_nview.GetZDO().m_ints?.TryGetValue("queued".GetStableHashCode(), out ore);
+			 int ore = __instance.m_nview.GetZDO().GetInt("queued");
 			__state = new KeyValuePair<ItemDrop.ItemData?, int>(item, ore);
 		}
 
@@ -251,7 +250,11 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 			{
 				if (!__instance.m_nview.IsOwner())
 				{
-					Dictionary<int, int> ints = __instance.m_nview.GetZDO().m_ints ??= new Dictionary<int, int>();
+					ZDOID zdoid = __instance.m_nview.GetZDO().m_uid;
+					if (!ZDOExtraData.s_ints.TryGetValue(zdoid, out BinarySearchDictionary<int, int> ints))
+					{
+						ZDOExtraData.s_ints[zdoid] = ints = new BinarySearchDictionary<int, int>();
+					}
 					ints.TryGetValue("queued".GetStableHashCode(), out int ore);
 					// ReSharper disable once CompareOfFloatsByEqualityOperator
 					if (ore == __state.Value)
@@ -280,7 +283,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		[HarmonyPriority(Priority.High)]
 		public static void Prefix(Smelter __instance, ItemDrop.ItemData? item, out KeyValuePair<ItemDrop.ItemData?, float> __state)
 		{
-			__instance.m_nview.GetZDO().m_floats.TryGetValue("fuel".GetStableHashCode(), out float fuel);
+			float fuel = __instance.m_nview.GetZDO().GetFloat("fuel".GetStableHashCode());
 			__state = new KeyValuePair<ItemDrop.ItemData?, float>(item, fuel);
 		}
 
@@ -290,7 +293,11 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 			{
 				if (!__instance.m_nview.IsOwner())
 				{
-					Dictionary<int, float> floats = __instance.m_nview.GetZDO().m_floats;
+					ZDOID zdoid = __instance.m_nview.GetZDO().m_uid;
+					if (!ZDOExtraData.s_floats.TryGetValue(zdoid, out BinarySearchDictionary<int, float> floats))
+					{
+						ZDOExtraData.s_floats[zdoid] = floats = new BinarySearchDictionary<int, float>();
+					}
 					floats.TryGetValue("fuel".GetStableHashCode(), out float fuel);
 					// ReSharper disable once CompareOfFloatsByEqualityOperator
 					if (fuel == __state.Value)
@@ -369,17 +376,34 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		}
 	}
 
-	[HarmonyPatch(typeof(Smelter), nameof(Smelter.UpdateHoverTexts))]
-	private class OverrideHoverText
+	[HarmonyPatch(typeof(Smelter), nameof(Smelter.OnHoverAddFuel))]
+	private class OverrideFuelHoverText
 	{
-		public static void Postfix(Smelter __instance)
+		public static void Postfix(Smelter __instance, ref string __result)
 		{
-			if (fillModifierKey.Value.MainKey is KeyCode.None)
+			if (fillModifierKey.Value.MainKey is not KeyCode.None)
 			{
-				return;
+				int amount = Math.Min(__instance.m_maxFuel - Mathf.CeilToInt(__instance.GetFuel()), Player.m_localPlayer?.m_inventory.CountItems(__instance.m_fuelItem.m_itemData.m_shared.m_name) ?? 0);
+				if (amount > 0)
+				{
+					__result += Localization.instance.Localize($"\n[<b><color=yellow>{fillModifierKey.Value}</color> + <color=yellow>$KEY_Use</color></b>] $piece_smelter_add {__instance.m_fuelItem.m_itemData.m_shared.m_name} ({amount})");
+				}
 			}
+		}
+	}
 
-			if (__instance.m_addOreSwitch)
+	[HarmonyPatch]
+	private class OverrideOreHoverText
+	{
+		public static IEnumerable<MethodInfo> TargetMethods() => new[]
+		{
+			AccessTools.DeclaredMethod(typeof(Smelter), nameof(Smelter.OnHoverAddOre)),
+			AccessTools.DeclaredMethod(typeof(Smelter), nameof(Smelter.OnHoverEmptyOre)),
+		};
+
+		public static void Postfix(Smelter __instance, ref string __result)
+		{
+			if (fillModifierKey.Value.MainKey is not KeyCode.None)
 			{
 				int free = __instance.m_maxOre - __instance.GetQueueSize();
 				List<string> items = new();
@@ -400,15 +424,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 				}
 				if (items.Count > 0)
 				{
-					__instance.m_addOreSwitch.m_hoverText += $"\n[<b><color=yellow>{fillModifierKey.Value}</color> + <color=yellow>$KEY_Use</color></b>] {__instance.m_addOreTooltip} ({string.Join(", ", items)})";
-				}
-			}
-			if (__instance.m_addWoodSwitch)
-			{
-				int amount = Math.Min(__instance.m_maxFuel - Mathf.CeilToInt(__instance.GetFuel()), Player.m_localPlayer?.m_inventory.CountItems(__instance.m_fuelItem.m_itemData.m_shared.m_name) ?? 0);
-				if (amount > 0)
-				{
-					__instance.m_addWoodSwitch.m_hoverText += $"\n[<b><color=yellow>{fillModifierKey.Value}</color> + <color=yellow>$KEY_Use</color></b>] $piece_smelter_add {__instance.m_fuelItem.m_itemData.m_shared.m_name} ({amount})";
+					__result += Localization.instance.Localize($"\n[<b><color=yellow>{fillModifierKey.Value}</color> + <color=yellow>$KEY_Use</color></b>] {__instance.m_addOreTooltip} ({string.Join(", ", items)})");
 				}
 			}
 		}
