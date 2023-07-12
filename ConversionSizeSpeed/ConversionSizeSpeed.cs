@@ -17,7 +17,7 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.11";
+	private const string ModVersion = "1.0.12";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -31,6 +31,8 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	private static readonly Dictionary<string, ConfigEntry<int>> fuelSpaceIncreasePerBoss = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> conversionSpeed = new();
 	private static ConfigEntry<Toggle> ignoreWindspeed = null!;
+
+	public static readonly HashSet<int> smelterHashes = new();
 
 	private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description, bool synchronizedSetting = true)
 	{
@@ -112,6 +114,8 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 			{
 				continue;
 			}
+
+			smelterHashes.Add(smelter.name.GetStableHashCode());
 
 			int i = conversionSpeed.Count + 2;
 
@@ -240,7 +244,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		[HarmonyPriority(Priority.High)]
 		public static void Prefix(Smelter __instance, ItemDrop.ItemData? item, out KeyValuePair<ItemDrop.ItemData?, int> __state)
 		{
-			 int ore = __instance.m_nview.GetZDO().GetInt("queued");
+			int ore = __instance.m_nview.GetZDO().GetInt("queued");
 			__state = new KeyValuePair<ItemDrop.ItemData?, int>(item, ore);
 		}
 
