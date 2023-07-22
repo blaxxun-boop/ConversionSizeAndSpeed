@@ -70,7 +70,7 @@ public static class ZDOStuff
 						string data = pkg.ReadString();
 						if (!ZDO.Strip(key, data))
 						{
-							ZDOExtraData.Add(__instance.m_uid, key, data);
+							ZDOExtraData.Set(__instance.m_uid, key, data);
 						}
 					}
 				}
