@@ -104,7 +104,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 
 		Regex regex = new("""['\["\]]""");
 
-		foreach (Smelter smelter in prefabs.Select(p => p.GetComponent<Smelter>()).Where(s => s != null))
+		foreach (Smelter smelter in prefabs.Select(p => p.GetComponent<Smelter>()).Where(s => s != null).OrderBy(s => s.name))
 		{
 			int order = 0;
 
