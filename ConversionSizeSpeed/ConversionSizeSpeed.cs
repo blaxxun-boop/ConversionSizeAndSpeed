@@ -17,7 +17,7 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.15";
+	private const string ModVersion = "1.0.16";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -31,9 +31,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	private static readonly Dictionary<string, ConfigEntry<int>> fuelSpaceIncreasePerBoss = new();
 	private static readonly Dictionary<string, ConfigEntry<int>> conversionSpeed = new();
 	private static ConfigEntry<Toggle> ignoreWindspeed = null!;
-
-	public static readonly HashSet<int> smelterHashes = new();
-
+	
 	private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description, bool synchronizedSetting = true)
 	{
 		ConfigEntry<T> configEntry = Config.Bind(group, name, value, description);
@@ -104,18 +102,16 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 
 		Regex regex = new("""['\["\]]""");
 
-		foreach (Smelter smelter in prefabs.Select(p => p.GetComponent<Smelter>()).Where(s => s != null))
+		foreach (Smelter smelter in prefabs.Select(p => p.GetComponentInChildren<Smelter>()).Where(s => s?.GetComponentInParent<Piece>() != null))
 		{
 			int order = 0;
 
-			string pieceName = smelter.GetComponent<Piece>().m_name;
+			string pieceName = smelter.GetComponentInParent<Piece>().m_name;
 
 			if (conversionSpeed.ContainsKey(pieceName))
 			{
 				continue;
 			}
-
-			smelterHashes.Add(smelter.name.GetStableHashCode());
 
 			int i = conversionSpeed.Count + 2;
 
@@ -148,7 +144,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		}
 	}
 
-	private static int BossesDead() => new[] { "eikthyr", "gdking", "bonemass", "dragon", "goblinking", "queen" }.Count(boss => ZoneSystem.instance.GetGlobalKey("defeated_" + boss));
+	private static int BossesDead() => new[] { "eikthyr", "gdking", "bonemass", "dragon", "goblinking", "queen", "fader" }.Count(boss => ZoneSystem.instance.GetGlobalKey("defeated_" + boss));
 
 	private static void OnSizeChanged(object o, EventArgs e) => RecalculateAllSizes();
 	private static void OnSpeedChanged(object o, EventArgs e) => UpdateConversionSpeed();
@@ -158,7 +154,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	{
 		foreach (Smelter smelter in FindObjectsOfType<Smelter>())
 		{
-			string pieceName = smelter.GetComponent<Piece>().m_name;
+			string pieceName = smelter.GetComponentInParent<Piece>().m_name;
 			if (smelter.m_addOreSwitch && storageSpace.TryGetValue(pieceName, out ConfigEntry<int> oreValue))
 			{
 				smelter.m_maxOre = oreValue.Value + storageSpaceIncreasePerBoss[pieceName].Value * BossesDead();
@@ -175,7 +171,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	{
 		foreach (Smelter smelter in FindObjectsOfType<Smelter>())
 		{
-			string pieceName = smelter.GetComponent<Piece>().m_name;
+			string pieceName = smelter.GetComponentInParent<Piece>().m_name;
 			if (conversionSpeed.TryGetValue(pieceName, out ConfigEntry<int> speedValue))
 			{
 				smelter.m_secPerProduct = speedValue.Value;
@@ -187,7 +183,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 	{
 		foreach (Smelter smelter in FindObjectsOfType<Smelter>())
 		{
-			string pieceName = smelter.GetComponent<Piece>().m_name;
+			string pieceName = smelter.GetComponentInParent<Piece>().m_name;
 			if (fuelPerProduct.ContainsKey(pieceName) && smelter.m_addWoodSwitch)
 			{
 				smelter.m_fuelPerProduct = fuelPerProduct[pieceName].Value;
@@ -201,7 +197,7 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 		[UsedImplicitly]
 		private static void Postfix(Smelter __instance)
 		{
-			string pieceName = __instance.GetComponent<Piece>().m_name;
+			string pieceName = __instance.GetComponentInParent<Piece>().m_name;
 
 			if (__instance.m_addOreSwitch && storageSpace.TryGetValue(pieceName, out ConfigEntry<int> oreValue))
 			{

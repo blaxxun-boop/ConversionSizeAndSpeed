@@ -89,7 +89,6 @@
     <ItemGroup>
         <Compile Include="ConversionSizeSpeed.cs"/>
         <Compile Include="Properties\AssemblyInfo.cs"/>
-        <Compile Include="ZDOStuff.cs"/>
     </ItemGroup>
     <ItemGroup>
         <Content Include="ILRepack.targets"/>
