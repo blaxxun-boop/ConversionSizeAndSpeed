@@ -17,7 +17,7 @@ namespace ConversionSizeSpeed;
 public class ConversionSizeSpeed : BaseUnityPlugin
 {
 	private const string ModName = "Conversion Size & Speed";
-	private const string ModVersion = "1.0.16";
+	private const string ModVersion = "1.0.17";
 	private const string ModGUID = "org.bepinex.plugins.conversionsizespeed";
 
 	private readonly ConfigSync configSync = new(ModName) { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
@@ -102,11 +102,11 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 
 		Regex regex = new("""['\["\]]""");
 
-		foreach (Smelter smelter in prefabs.Select(p => p.GetComponentInChildren<Smelter>()).Where(s => s?.GetComponentInParent<Piece>() != null))
+		foreach (Smelter smelter in prefabs.Select(p => p.GetComponentInChildren<Smelter>()).Where(s => s?.GetComponentInParent<Piece>(true) != null))
 		{
 			int order = 0;
 
-			string pieceName = smelter.GetComponentInParent<Piece>().m_name;
+			string pieceName = smelter.GetComponentInParent<Piece>(true).m_name;
 
 			if (conversionSpeed.ContainsKey(pieceName))
 			{
@@ -117,29 +117,29 @@ public class ConversionSizeSpeed : BaseUnityPlugin
 
 			if (smelter.m_addOreSwitch)
 			{
-				storageSpace[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Storage space", smelter.m_maxOre, new ConfigDescription($"Sets the maximum number of items that a {english.Localize(pieceName)} can hold.", new AcceptableValueRange<int>(1, 1000), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order }));
+				storageSpace[pieceName] = mod.config($"{regex.Replace(english.Localize(pieceName), "")}", "Storage space", smelter.m_maxOre, new ConfigDescription($"Sets the maximum number of items that a {english.Localize(pieceName)} can hold.", new AcceptableValueRange<int>(1, 1000), new ConfigurationManagerAttributes { Category = $"{Localization.instance.Localize(pieceName)}", Order = --order }));
 				storageSpace[pieceName].SettingChanged += OnSizeChanged;
-				storageSpaceIncreasePerBoss[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Storage space increase per boss", 0, new ConfigDescription($"Increases the maximum number of items that a {english.Localize(pieceName)} can hold for each boss killed.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order, ShowRangeAsPercent = false }));
+				storageSpaceIncreasePerBoss[pieceName] = mod.config($"{regex.Replace(english.Localize(pieceName), "")}", "Storage space increase per boss", 0, new ConfigDescription($"Increases the maximum number of items that a {english.Localize(pieceName)} can hold for each boss killed.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Category = $"{Localization.instance.Localize(pieceName)}", Order = --order, ShowRangeAsPercent = false }));
 				storageSpaceIncreasePerBoss[pieceName].SettingChanged += OnSizeChanged;
 			}
 			if (smelter.m_addWoodSwitch)
 			{
-				fuelSpace[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Fuel space", smelter.m_maxFuel, new ConfigDescription($"Sets the maximum number of fuel that a {english.Localize(pieceName)} can hold.", new AcceptableValueRange<int>(1, 1000), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order }));
+				fuelSpace[pieceName] = mod.config($"{regex.Replace(english.Localize(pieceName), "")}", "Fuel space", smelter.m_maxFuel, new ConfigDescription($"Sets the maximum number of fuel that a {english.Localize(pieceName)} can hold.", new AcceptableValueRange<int>(1, 1000), new ConfigurationManagerAttributes { Category = $"{Localization.instance.Localize(pieceName)}", Order = --order }));
 				fuelSpace[pieceName].SettingChanged += OnSizeChanged;
-				fuelSpaceIncreasePerBoss[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Fuel space increase per boss", 0, new ConfigDescription($"Increases the maximum number of fuel that a {english.Localize(pieceName)} can hold for each boss killed.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order, ShowRangeAsPercent = false }));
+				fuelSpaceIncreasePerBoss[pieceName] = mod.config($"{regex.Replace(english.Localize(pieceName), "")}", "Fuel space increase per boss", 0, new ConfigDescription($"Increases the maximum number of fuel that a {english.Localize(pieceName)} can hold for each boss killed.", new AcceptableValueRange<int>(0, 100), new ConfigurationManagerAttributes { Category = $"{Localization.instance.Localize(pieceName)}", Order = --order, ShowRangeAsPercent = false }));
 				fuelSpaceIncreasePerBoss[pieceName].SettingChanged += OnSizeChanged;
 				if (pieceName != "$piece_bathtub")
 				{
-					fuelPerProduct[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Fuel per product", smelter.m_fuelPerProduct, new ConfigDescription($"Sets how much fuel a {english.Localize(pieceName)} needs per produced product.", new AcceptableValueRange<int>(1, 20), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order }));
+					fuelPerProduct[pieceName] = mod.config($"{regex.Replace(english.Localize(pieceName), "")}", "Fuel per product", smelter.m_fuelPerProduct, new ConfigDescription($"Sets how much fuel a {english.Localize(pieceName)} needs per produced product.", new AcceptableValueRange<int>(1, 20), new ConfigurationManagerAttributes { Category = $"{Localization.instance.Localize(pieceName)}", Order = --order }));
 					fuelPerProduct[pieceName].SettingChanged += OnFuelPerProductChanged;
 				}
 			}
 			if (smelter.m_windmill is not null)
 			{
-				ignoreWindspeed = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Ignore wind intensity", Toggle.Off, new ConfigDescription($"If on, {english.Localize(pieceName)} always produces at average speed, regardless of wind.", null, new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order }));
+				ignoreWindspeed = mod.config($"{regex.Replace(english.Localize(pieceName), "")}", "Ignore wind intensity", Toggle.Off, new ConfigDescription($"If on, {english.Localize(pieceName)} always produces at average speed, regardless of wind.", null, new ConfigurationManagerAttributes { Category = $"{Localization.instance.Localize(pieceName)}", Order = --order }));
 			}
 
-			conversionSpeed[pieceName] = mod.config($"{i} - {regex.Replace(english.Localize(pieceName), "")}", "Conversion time", (int)smelter.m_secPerProduct, new ConfigDescription($"Time in seconds that a {english.Localize(pieceName)} needs for one conversion.", new AcceptableValueRange<int>(1, pieceName == "$piece_bathtub" ? 10000 : 1000), new ConfigurationManagerAttributes { Category = $"{i} - {Localization.instance.Localize(pieceName)}", Order = --order }));
+			conversionSpeed[pieceName] = mod.config($"{regex.Replace(english.Localize(pieceName), "")}", "Conversion time", (int)smelter.m_secPerProduct, new ConfigDescription($"Time in seconds that a {english.Localize(pieceName)} needs for one conversion.", new AcceptableValueRange<int>(1, pieceName == "$piece_bathtub" ? 10000 : 1000), new ConfigurationManagerAttributes { Category = $"{Localization.instance.Localize(pieceName)}", Order = --order }));
 			conversionSpeed[pieceName].SettingChanged += OnSpeedChanged;
 		}
 	}
